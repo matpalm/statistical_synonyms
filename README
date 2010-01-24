@@ -49,6 +49,26 @@ a c 1.0
 a d 1.0      
 b c 0.5     
 b d 0.5  
-TODO: weight these on the relative frequency of x1, x2, y1 and y2
 
+testing out
+rm exploded_means 
+
+head -1000 sample.tweets.840k > sample.tweets
+rm exploded_means
+pig -x local -f stat_syn.pig
+cat exploded_means | grep -v 1.0$ | sort -n -k 3 > result.1000
+
+head -10000 sample.tweets.840k > sample.tweets
+rm exploded_means
+pig -x local -f stat_syn.pig
+cat exploded_means | grep -v 1.0$ | sort -n -k 3 > result.10000
+
+head -20000 sample.tweets.840k > sample.tweets
+rm exploded_means
+pig -x local -f stat_syn.pig
+cat exploded_means | grep -v 1.0$ | sort -n -k 3 > result.20000
+
+TODO write up this algorithm for a blog post
+TODO: all the 1.0 ones seem crap, why?
+TODO: weight exploded means on the frequency of the words these on the relative frequency of x1, x2, y1 and y2
 
