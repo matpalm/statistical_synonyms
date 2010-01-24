@@ -1,0 +1,10 @@
+text = load 'sample.tweets';
+ngrams = stream text through `ruby n_grams.rb 3` as (f1:chararray, f2:chararray, f3:chararray);
+ngrams_grouped = group ngrams by (f1,f2,f3);
+freqs = foreach ngrams_grouped generate flatten(group), SIZE(ngrams) as freq;
+middle_values = group freqs by (f1,f3);
+middle_values2 = foreach middle_values generate group, freqs.f2, freqs.freq;
+exploded = stream middle_values2 through `ruby explode_combos.rb` as (s1:chararray, s2:chararray, weight:float);
+exploded_grouped = group exploded by (s1,s2);
+exploded_mean = foreach exploded_grouped generate flatten(group), AVG(exploded.weight);
+store exploded_mean into 'exploded_means';
