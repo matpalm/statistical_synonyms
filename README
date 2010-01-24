@@ -1,7 +1,7 @@
 this is work in progress
 see http://matpalm.com/blog/tag/e12/ for more as i fill it out
 
-zcat /data/twitter/gardenhose/sample.20091116.json.gz | head -1000 | tweet_text.rb | sanitise.rb > sample.tweets
+zcat /data/twitter/gardenhose/sample.20091116.json.gz | head -1000 | ./tweet_text.rb | ./sanitise.rb > sample.tweets
 
 text = load 'sample.tweets';
 ngrams = stream text through `ruby n_grams.rb 3` as (f1:chararray, f2:chararray, f3:chararray);
