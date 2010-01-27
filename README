@@ -72,3 +72,86 @@ TODO write up this algorithm for a blog post
 TODO: all the 1.0 ones seem crap, why?
 TODO: weight exploded means on the frequency of the words these on the relative frequency of x1, x2, y1 and y2
 
+
+
+p1
+
+text = load 'test.tsv';
+ngrams = stream text through `ruby n_grams.rb 3` as (f1:chararray, f2:chararray, f3:chararray);
+distinct_ngrams = distinct ngrams;
+middle_values = group distinct_ngrams by (f1,f3);
+middle_values2 = foreach middle_values generate group, distinct_ngrams.f2;
+exploded = stream middle_values2 through `ruby explode_combos.rb` as (s1:chararray, s2:chararray);
+
+(races,runs)
+(races,sprints)
+(runs,sprints)
+
+p2
+
+introduce two types of freq checking;
+different frequencies of a for various x a b (frequency weighting)
+different instances of x and y for a given a; x1 a y1 and x2 a y2 (context)
+
+text = load 'test.tsv';
+ngrams = stream text through `ruby n_grams.rb 3` as (f1:chararray, f2:chararray, f3:chararray);
+ngrams_grouped = group ngrams by (f1,f2,f3);
+freqs = foreach ngrams_grouped generate flatten(group), SIZE(ngrams) as freq;
+middle_values = group freqs by (f1,f3);
+middle_values2 = foreach middle_values generate group, freqs.f2, freqs.freq;
+exploded = stream middle_values2 through `ruby explode_combos.rb` as (s1:chararray, s2:chararray, weight:float);
+exploded_grouped = group exploded by (s1,s2);
+non_unique_exploded = filter exploded_grouped by SIZE(exploded)>1;
+exploded_mean = foreach non_unique_exploded generate flatten(group), AVG(exploded.weight);
+dump exploded_mean;
+
+on a _real_ dataset as above but 'sample.tweets'
+
+500 tweets
+3e3 unique 3grams
+no stat_syns found
+
+1e3 tweets
+6e3 unique 3grams
+3 stat_syns found
+like	need	1.6666666865348816
+hate	want	2.0
+in	of	2.0
+
+5e3 tweets
+27e3 unique 3grams
+114 stat_syns found
+top ones are....
+u	you	2.0
+whats	whos	2.0
+got	want	2.2000000029802322
+hate	want	2.2000000029802322
+be	do	2.25
+have	need	2.333333373069763
+be	get	2.5
+got	had	2.5
+in	with	2.5
+a	the	3.0
+get	watch	3.0
+had	have	3.0
+has	is	3.0
+2	to	3.5
+in	to	4.0
+i	you	4.5
+
+some interesting ones include...
+i	you	4.5  # the strongest in terms of strength, but a terrible match
+2	to	3.5  # an interesting one, slang shortening? just an accident?
+u	you	2.0  # ditto
+end	food	2.0  # garbage
+beautiful	great	1.5 # a decent one
+
+more rubbbish than not though over.
+
+include term frequencies?
+
+p3
+
+
+
+
