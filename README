@@ -1,7 +1,22 @@
 this is work in progress
 see http://matpalm.com/blog/tag/e12/ for more as i fill it out
 
-zcat /data/twitter/gardenhose/sample.20091116.json.gz | head -1000 | ./tweet_text.rb | ./sanitise.rb > sample.tweets
+zcat /data/twitter/gardenhose/sample.20091116.json.gz |\
+	./tweet_text.rb |\
+	./sanitise.rb |\
+	> sample.tweets
+
+p1.
+just extract middle values in list and display ones that occur more than once
+mat@eee:~/dev/statistical_synonyms/p1$ head -100 ../ff | ./p1.rb 
+[:i, :you] -> [:told, :love]
+[:www, :com] -> [:editorasulina, :thesaturdayszone]
+[:i, :the] -> [:turned, :want]
+[:i, :to] -> [:have, :created]
+[:check, :out] -> [:it, :this]
+[:you, :to] -> [:need, :add]
+[:mais, :que] -> [:um, :do]
+
 
 text = load 'sample.tweets';
 ngrams = stream text through `ruby n_grams.rb 3` as (f1:chararray, f2:chararray, f3:chararray);
@@ -31,6 +46,8 @@ middle_values = group freqs by (f1,f3);
 middle_values2 = foreach middle_values generate group, freqs.f2, freqs.freq;
 ((x1,y1),{(a),(b),(d)},{(2L),(1L),(2L)})
 ((x2,y2),{(a),(b),(c)},{(1L),(2L),(1L)})
+
+******* TODO: need to bake in term frequencies of x1,y1,x2,y2 __here__, before the aggregation is fone for "a b" style pairs
 
 exploded = stream middle_values2 through `ruby explode_combos.rb` as (s1:chararray, s2:chararray, weight:float);
 this step has to be a udf, or stream out to ruby
@@ -82,7 +99,7 @@ distinct_ngrams = distinct ngrams;
 middle_values = group distinct_ngrams by (f1,f3);
 middle_values2 = foreach middle_values generate group, distinct_ngrams.f2;
 exploded = stream middle_values2 through `ruby explode_combos.rb` as (s1:chararray, s2:chararray);
-
+dump exploded;
 (races,runs)
 (races,sprints)
 (runs,sprints)
@@ -103,7 +120,7 @@ exploded = stream middle_values2 through `ruby explode_combos.rb` as (s1:chararr
 exploded_grouped = group exploded by (s1,s2);
 non_unique_exploded = filter exploded_grouped by SIZE(exploded)>1;
 exploded_mean = foreach non_unique_exploded generate flatten(group), AVG(exploded.weight);
-dump exploded_mean;
+store exploded_mean into 'exploded_mean.tsv'
 
 on a _real_ dataset as above but 'sample.tweets'
 
@@ -147,6 +164,20 @@ end	food	2.0  # garbage
 beautiful	great	1.5 # a decent one
 
 more rubbbish than not though over.
+
+i you 1,0.5,1,1,1 (avg=0.9, sum=4.5)
+i 69/7807
+you 71/7807
+
+in to 1 1 1 1 (avg=1, sum=4)
+in 54
+to 134
+
+u you 1 1 (avg=1, sum=2)
+u 9
+you 71
+
+
 
 include term frequencies?
 

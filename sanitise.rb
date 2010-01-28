@@ -21,6 +21,10 @@ class String
   	gsub(/\s+/, ' ')
 	end
 
+	def digits_washed
+		gsub(/\d/,'D')
+	end
+
 end
 
 STDIN.each do |line|
@@ -32,6 +36,7 @@ STDIN.each do |line|
 		with_amps_spaced.
 		without_punctionation.
 		duplicate_spaces_removed.
+		digits_washed.
 		strip
 	puts line unless line.empty?
 end

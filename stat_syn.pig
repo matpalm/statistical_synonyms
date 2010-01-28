@@ -2,6 +2,10 @@ text = load 'sample.tweets';
 
 tokens = stream text through `ruby unigrams.rb` as (token:chararray);
 tokens_grouped = group tokens by token;
+token_freq = foreach tokens_grouped generate group as token, SIZE(tokens) as freq; 
+
+all_tokens = group token_freq all;
+total_num = foreach all_tokens generate SUM(token_freq.freq);
 
 ngrams = stream text through `ruby n_grams.rb 3` as (f1:chararray, f2:chararray, f3:chararray);
 ngrams_grouped = group ngrams by (f1,f2,f3);
