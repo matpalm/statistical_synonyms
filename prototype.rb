@@ -129,13 +129,16 @@ def explode_combos_for middle_value
 end
 
 # [x1,y1,a1,a2,0.25]
+A1A2_WEIGHT_PROPORTION = 0.5#.7
+XY_WEIGHT_PROPORTION = 0.5 #- A1A2_WEIGHT_PROPORTION
 def combined_weights_for exploded_combos, normalised_xy_weights
-	exploded_combos.collect do |combo|
+#	exploded_combos.collect do |combo|    # on large datasets when just puts this blows things up
+	exploded_combos.each do |combo|
 		x,y,a1,a2,a1a2_weight = combo
 		xy_weight = normalised_xy_weights[[x,y]]
-		combined_weight = a1a2_weight * xy_weight
-		printf "a1=#{a1} a2=#{a2} a1a2_weight=#{a1a2_weight} xy_weight=%0.20f\n",xy_weight
-		[a1, a2, combined_weight]
+#		combined_weight = (a1a2_weight * A1A2_WEIGHT_PROPORTION) * (xy_weight * XY_WEIGHT_PROPORTION)
+		puts [x,y,xy_weight,a1,a2,a1a2_weight,].join("\t")
+#		[a1, a2, combined_weight]
 	end
 end
 
@@ -209,12 +212,22 @@ combined_weights.each do |weights|
 	a1a2_weights[[a1,a2]] ||= []
 	a1a2_weights[[a1,a2]] << weight
 end
+#puts "a1a2_weights"; a1a2_weights.each { |a1a2,weights| puts "#{a1a2.inspect} #{weights.inspect}" }
 
+# remove those with only one weight
+# TODO: this could done at combining_weights step
+keys_to_remove = []
+a1a2_weights.keys.each do |a1a2|
+	num_weights = a1a2_weights[a1a2].size
+	keys_to_remove << a1a2 if num_weights == 1	
+end
+keys_to_remove.each { |key| a1a2_weights.delete key }
+#puts "keys removed"; a1a2_weights.each { |a1a2,weights| puts "#{a1a2.inspect} #{weights.inspect}" }
 
-
+=begin
 a1a2_weights.each do |a1a2pair, list_of_weights|
 	a1,a2 = a1a2pair
 	sum = list_of_weights.inject{|a,v| a+v}	
-	printf "%20s %20s %0.10f (%d)\n",a1,a2,sum.to_f/list_of_weights.size,list_of_weights.size
+	printf "%20s %20s %0.10f %d\n",a1,a2,sum.to_f,list_of_weights.size
 end
-
+=end
