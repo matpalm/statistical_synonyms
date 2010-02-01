@@ -56,6 +56,7 @@ def build_n_grams_freq n_grams
 	freq
 end
 
+=begin
 def uniq_xy_pairs n_grams_freq
 	uniq_xy = Set.new
 	n_grams_freq.keys.each do |ngram|
@@ -64,7 +65,9 @@ def uniq_xy_pairs n_grams_freq
 	end
 	uniq_xy
 end
+=end
 
+=begin
 # calculate xy_weights hash 
 # (also rescaled to 0.0001 -> 1) 
 # { [:x1,:x1] => 0.5, 
@@ -88,6 +91,7 @@ def build_normalised_xy_weights_from uniq_xy_pairs, freq
 	end
 	weights
 end
+=end
 
 def build_middle_values n_grams_freq
 	middle_values = {} 	
@@ -107,7 +111,7 @@ def remove_uniq_middle_values middle_values_hash
 	end
 end
 
-def explode_combos_for middle_value
+def explode_combos_for freq, middle_value
 	result = []
 	middle_value.each do |pair, middle_values|
 		x, y = pair
@@ -119,7 +123,8 @@ def explode_combos_for middle_value
 				a2_freq = middle_values[a2]
 				a1a2_relative_freq = a1_freq.to_f / a2_freq
 				a1a2_relative_freq = 1/a1a2_relative_freq if a1a2_relative_freq>1
-				result << [x,y,a1,a2,a1a2_relative_freq]	
+				#result << [x,y,a1,a2,a1a2_relative_freq]	
+				puts [x,freq[x],y,freq[y],a1,freq[a1],a2,freq[a2],a1a2_relative_freq].join("\t")
 			end
 			a1 = middle_values_terms.shift
 			a1_freq = middle_values[a1]
@@ -129,14 +134,11 @@ def explode_combos_for middle_value
 end
 
 # [x1,y1,a1,a2,0.25]
-A1A2_WEIGHT_PROPORTION = 0.5#.7
-XY_WEIGHT_PROPORTION = 0.5 #- A1A2_WEIGHT_PROPORTION
 def combined_weights_for exploded_combos, normalised_xy_weights
 #	exploded_combos.collect do |combo|    # on large datasets when just puts this blows things up
 	exploded_combos.each do |combo|
 		x,y,a1,a2,a1a2_weight = combo
 		xy_weight = normalised_xy_weights[[x,y]]
-#		combined_weight = (a1a2_weight * A1A2_WEIGHT_PROPORTION) * (xy_weight * XY_WEIGHT_PROPORTION)
 		puts [x,y,xy_weight,a1,a2,a1a2_weight,].join("\t")
 #		[a1, a2, combined_weight]
 	end
@@ -166,14 +168,14 @@ n_grams_freq = build_n_grams_freq n_grams
 
 # build list of unique x/y pairs
 # [ [:x1,:x1], [:x2,:y2] ]
-uniq_xy_pairs = uniq_xy_pairs n_grams_freq
+#uniq_xy_pairs = uniq_xy_pairs n_grams_freq
 #puts "uniq_xy_pairs"; puts uniq_xy_pairs.inspect
 
 # calculate xy_weights hash 
 # (also rescaled to 0.0001 -> 1) 
 # { [:x1,:x1] => 0.5, 
 #   [:x2,:y2] => 0.2 }
-normalised_xy_weights = build_normalised_xy_weights_from uniq_xy_pairs, term_freq
+#normalised_xy_weights = build_normalised_xy_weights_from uniq_xy_pairs, term_freq
 #puts "normalised_xy_weights"
 #normalised_xy_weights.each { |xy_pair, freq| puts "#{freq} #{xy_pair.inspect}" }
 #exit 0
@@ -195,7 +197,8 @@ non_unique_middle_values = remove_uniq_middle_values middle_values_hash
 # [x2,y2,a1,a3,0.5]
 # [x2,y2,a2,a3,0.25]
 # [x1,y1,a1,a2,0.25]
-exploded_combos = explode_combos_for non_unique_middle_values
+exploded_combos = explode_combos_for term_freq, non_unique_middle_values
+exit 0
 #exploded_combos.each { |ec| puts ec.inspect }
 
 # combine weights; both the a12 frequency just calculated and the normalised_xy_weights 
