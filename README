@@ -6,183 +6,404 @@ zcat /data/twitter/gardenhose/sample.20091116.json.gz |\
 	./sanitise.rb |\
 	> sample.tweets
 
-p1.
-just extract middle values in list and display ones that occur more than once
-mat@eee:~/dev/statistical_synonyms/p1$ head -100 ../ff | ./p1.rb 
-[:i, :you] -> [:told, :love]
-[:www, :com] -> [:editorasulina, :thesaturdayszone]
-[:i, :the] -> [:turned, :want]
-[:i, :to] -> [:have, :created]
-[:check, :out] -> [:it, :this]
-[:you, :to] -> [:need, :add]
-[:mais, :que] -> [:um, :do]
+get algorithm working on smaller data (500e3 tweets) in ruby (prototype.rb) before cranking further
 
-
-text = load 'sample.tweets';
-ngrams = stream text through `ruby n_grams.rb 3` as (f1:chararray, f2:chararray, f3:chararray);
-
-raw data
+consider the 3grams
 x1 a y1
 x1 b y1
-x1 a y1
-x1 d y1
+x1 b y1
+x1 c y1
+x1 c y1
 x2 a y2
-x2 c y2
 x2 b y2
+
+our end goal is to derive a weighting between each inner pair (a,b,c) that determines how related they are
+
+there are two types of relationships, each with it's own weighting and need to decide how to combine the weightings.
+
+1. a1a2_weight from inner term relationship weight
+
+x1 a y1
+x1 b y1
+x1 b y1
+x1 c y1
+x1 c y1
+
+with same (x1,y1) -> {a=>1, b=>2, c=>2}
+so there is a relationship a-b, a-c and b-c though b and c are more closely related since their frequencies are the same
+we can calculate this as the ratios of the proportions
+so a1a2_wight(a,b) = 0.5, a1a2_wight(a,c) = 0.5, a1a2_wight(b,c) = 1.0, 
+
+2. xy_weight outer terms relationships
+
+x1 a y1
+x1 b y1
+x2 a y2
 x2 b y2
-x1 d y1
 
-freqs
-ngrams_grouped = group ngrams by (f1,f2,f3);
-freqs = foreach ngrams_grouped generate flatten(group), SIZE(ngrams) as freq;
-(x1,a,y1,2L)
-(x1,b,y1,1L)
-(x1,d,y1,2L)
-(x2,a,y2,1L)
-(x2,b,y2,2L)
-(x2,c,y2,1L)
+unique x,y pairs gives frequencies
+(x1,y1) -> {a=>1, b=>1}
+(x2,y2) -> {a=>1, b=>1}
 
-middle_values = group freqs by (f1,f3);
-middle_values2 = foreach middle_values generate group, freqs.f2, freqs.freq;
-((x1,y1),{(a),(b),(d)},{(2L),(1L),(2L)})
-((x2,y2),{(a),(b),(c)},{(1L),(2L),(1L)})
+and when x1 and y1 are common the relationship between a and b is less
+but when x2 and y2 are rare terms the relationship between a and b is more
 
-******* TODO: need to bake in term frequencies of x1,y1,x2,y2 __here__, before the aggregation is fone for "a b" style pairs
+so we need to derive a weighting for each x,y pair
+it could be a function of the freq(x) and freq(y) 
+but try a simpler one first, the freq((x,y)) across all ngrams
 
-exploded = stream middle_values2 through `ruby explode_combos.rb` as (s1:chararray, s2:chararray, weight:float);
-this step has to be a udf, or stream out to ruby
-a b 2/1 0.5  *
-a d 2/2 1.0
-b d 1/2 0.5
-a b 1/2 0.5  *
-a c 1/1 1.0
-b c 2/1 0.5
+eg for outer term pairs
+x1,y1
+x1,y1
+x2,y2
 
-exploded_grouped = group exploded by (s1,s2);
-exploded_mean = foreach exploded_grouped generate flatten(group), AVG(exploded.weight);
-
-a b 0.5
-a c 1.0     
-a d 1.0      
-b c 0.5     
-b d 0.5  
-
-testing out
-rm exploded_means 
-
-head -1000 sample.tweets.840k > sample.tweets
-rm exploded_means
-pig -x local -f stat_syn.pig
-cat exploded_means | grep -v 1.0$ | sort -n -k 3 > result.1000
-
-head -10000 sample.tweets.840k > sample.tweets
-rm exploded_means
-pig -x local -f stat_syn.pig
-cat exploded_means | grep -v 1.0$ | sort -n -k 3 > result.10000
-
-head -20000 sample.tweets.840k > sample.tweets
-rm exploded_means
-pig -x local -f stat_syn.pig
-cat exploded_means | grep -v 1.0$ | sort -n -k 3 > result.20000
-
-TODO write up this algorithm for a blog post
-TODO: all the 1.0 ones seem crap, why?
-TODO: weight exploded means on the frequency of the words these on the relative frequency of x1, x2, y1 and y2
+we say xy_weight(x1,y1) = 2/3, xy_weight(x2,y2) = 1/3
 
 
+so for each pair of inner terms we can derive two weights, xy_weight and a1a2_weight
+but how to combine them for one score for each a1,a2
 
-p1
+the overall score is some function of xy_weight, a1a2_weight, but how to combine them?
+lets plot some stuff to get a feel for the data...
 
-text = load 'test.tsv';
-ngrams = stream text through `ruby n_grams.rb 3` as (f1:chararray, f2:chararray, f3:chararray);
-distinct_ngrams = distinct ngrams;
-middle_values = group distinct_ngrams by (f1,f3);
-middle_values2 = foreach middle_values generate group, distinct_ngrams.f2;
-exploded = stream middle_values2 through `ruby explode_combos.rb` as (s1:chararray, s2:chararray);
-dump exploded;
-(races,runs)
-(races,sprints)
-(runs,sprints)
+using prototype.rb ea9fa3cf697a1b89d0fe7f188ba0bcbfc61623ef
 
-p2
+bash> head -50000 sample.tweets.840k | nice ./prototype.rb > x_y_xyweight_a1_a2_a1a1weight.50k
+5	a	0.0701901773258219	20	at	0.5
+5	a	0.0701901773258219	20	minutos	1.0
+5	a	0.0701901773258219	at	minutos	0.5
+8	w	0.00276630322069568	0	500	1.0
+6	c	0.00175288733854873	9	90	1.0
+0	h	0.0014678933393171	00km	km	0.142857142857143
+tired	being	0.000311937959194775	at	of	1.0
+bem	todos	0.000320975943661908	faleva	perfeitopara	1.0
+2	i	0.117422939141216	again	beatles	1.0
+2	i	0.117422939141216	again	bed	1.0
+...
 
-introduce two types of freq checking;
-different frequencies of a for various x a b (frequency weighting)
-different instances of x and y for a given a; x1 a y1 and x2 a y2 (context)
+280e3 entries
 
-text = load 'test.tsv';
-ngrams = stream text through `ruby n_grams.rb 3` as (f1:chararray, f2:chararray, f3:chararray);
-ngrams_grouped = group ngrams by (f1,f2,f3);
-freqs = foreach ngrams_grouped generate flatten(group), SIZE(ngrams) as freq;
-middle_values = group freqs by (f1,f3);
-middle_values2 = foreach middle_values generate group, freqs.f2, freqs.freq;
-exploded = stream middle_values2 through `ruby explode_combos.rb` as (s1:chararray, s2:chararray, weight:float);
-exploded_grouped = group exploded by (s1,s2);
-non_unique_exploded = filter exploded_grouped by SIZE(exploded)>1;
-exploded_mean = foreach non_unique_exploded generate flatten(group), AVG(exploded.weight);
-store exploded_mean into 'exploded_mean.tsv'
+pluck out just xy_weights
+bash> cat x_y_xyweight_a1_a2_a1a1weight.50k | perl -plne's/(.*?\t.*?\t.*?\t).*/$1/' | sort | uniq > x_y_xy_weights.50k
+00	00	0.000743522966680153	
+0	0	0.00195968435618385	
+&	0	0.0180993713642653	
+000	2ba	2.00875579535963e-05	
+...
+16e3 entries
 
-on a _real_ dataset as above but 'sample.tweets'
+examine distribution of weights
+R
+jpeg("xy_weights.comparison.jpg", width = 750, height = 480)
+xy_weights = read.delim('x_y_xy_weights.50k',header=FALSE)
+plot(sort(xy_weights$V3))
+dev.off()
 
-500 tweets
-3e3 unique 3grams
-no stat_syns found
+pluck out just a1a2_weights
+bash> cat x_y_xyweight_a1_a2_a1a1weight.50k | perl -plne's/.*?\t.*?\t.*?\t//' | sort > a1_a2_a1a2weights.50k
+20	at	0.5
+20	minutos	1.0
+at	minutos	0.5
+0	500	1.0
+...
+280e3 values (no combining yet)
 
-1e3 tweets
-6e3 unique 3grams
-3 stat_syns found
-like	need	1.6666666865348816
-hate	want	2.0
-in	of	2.0
+option1: average value for each a1a2 pair; pro: normalised values
+option2: sum for each a1a2 pair; pro: favours terms that occur a lot
 
-5e3 tweets
-27e3 unique 3grams
-114 stat_syns found
-top ones are....
-u	you	2.0
-whats	whos	2.0
-got	want	2.2000000029802322
-hate	want	2.2000000029802322
-be	do	2.25
-have	need	2.333333373069763
-be	get	2.5
-got	had	2.5
-in	with	2.5
-a	the	3.0
-get	watch	3.0
-had	have	3.0
-has	is	3.0
-2	to	3.5
-in	to	4.0
-i	you	4.5
+calculate both with 
+bash> cat x_y_xyweight_a1_a2_a1a1weight.50k | ./a1_a2_a1a2weights_summary_stats.rb > a1_a2_a1a2weights.ss.50k
+a1	a2	num_entries	total_xy	average_xy	total_weight	average_weight
+hubbs	laptop	1	0.15401414005419400421	0.15401414005419400421	1.00000	1.00000
+dye	people	1	0.44519380385250501009	0.44519380385250501009	1.00000	1.00000
+250e3 values
 
-some interesting ones include...
-i	you	4.5  # the strongest in terms of strength, but a terrible match
-2	to	3.5  # an interesting one, slang shortening? just an accident?
-u	you	2.0  # ditto
-end	food	2.0  # garbage
-beautiful	great	1.5 # a decent one
+examine relationships between values
+R
+> d = read.delim('a1_a2_a1a2weights.ss.50k')
 
-more rubbbish than not though over.
+> head(d)
+         a1       a2 num_entries   total_xy average_xy total_weight
+1     hubbs   laptop           1 0.15401414 0.15401414          1.0
+2       dye   people           1 0.44519380 0.44519380          1.0
+3       one skeleton           1 0.44519380 0.44519380          1.0
+4      died      may           1 0.05805338 0.05805338          1.0
+5    detest    hated           1 0.71779726 0.71779726          1.0
+6 celebrate discover           1 0.86486595 0.86486595          0.5
+  average_weight
+1            1.0
+2            1.0
+3            1.0
+4            1.0
+5            1.0
+6            0.5
 
-i you 1,0.5,1,1,1 (avg=0.9, sum=4.5)
-i 69/7807
-you 71/7807
+> pch=1
+> pairs(head(d,100)) 
 
-in to 1 1 1 1 (avg=1, sum=4)
-in 54
-to 134
+some sort orders that produce good looking results include
+total_weight u/you 2/to &/and
+num_entries 2/to u/you
 
-u you 1 1 (avg=1, sum=2)
-u 9
-you 71
+d$test = d$total_xy * d$total_weight       some interesting ones get/have, have/need, i/you, 
+d$test = d$average_xy * d$total_weight     some interesting ones get/have, day/night, me/you, get/got
+d$test = d$total_xy * d$average_weight     some interesting ones get/have, day/night, have/need, got/have
+d$test = d$average_xy * d$average_weight   rubbish, 1 cases swamp everything
 
+all the following seems similiar to previous runs
+d$test = log(d$total_xy) * d$total_weight
+d$test = log(d$total_xy) * d$average_weight 
+d$test = d$total_xy * log(d$total_weight)
 
+d$test = d$total_xy * log(d$average_weight) rubbish, 0 cases swamp everything
 
-include term frequencies?
-
-p3
+d$test = d$total_xy + d$total_weight
 
 
+conclusion: total_weight is far superior to any combo that include total_xy
+
+perhaps need to recalculate total_xy as  freq(x) * freq(y) instead of freq([[x,y]) ???
+
+commit 3babcff
+change prototype to emit x and y frequency product instead of xy_frequency
+
+mat@ubishop:~/dev/statistical_synonyms$ head -100 sample.tweets.840k | ./prototype.rb
+x x_freq              y y_freq                 a1 a1_freq                a2 a2_freq               a1a2_weight
+i	0.0174216027874564	you	0.0150987224157956	love	0.00348432055749129	told	0.00116144018583043	1.0
+www	0.00232288037166086	com	0.00348432055749129	editorasulina	0.00116144018583043	thesaturdayszone	0.00116144018583043	1.0
+you	0.0150987224157956	to	0.0139372822299652	add	0.00116144018583043	need	0.00116144018583043	1.0
+i	0.0174216027874564	to	0.0139372822299652	created	0.00116144018583043	have	0.00580720092915215	1.0
+i	0.0174216027874564	the	0.0197444831591173	turned	0.00116144018583043	want	0.00232288037166086	1.0
+check	0.00348432055749129	out	0.00348432055749129	it	0.00232288037166086	this	0.00232288037166086	1.0
+mais	0.00464576074332172	que	0.00348432055749129	do	0.00580720092915215	um	0.00232288037166086	1.0
+
+mat@ubishop:~/dev/statistical_synonyms$ head -25000 sample.tweets.840k | ./prototype.rb | ./summary_stats.rb > fff
+
+mat@ubishop:~/dev/statistical_synonyms$ shuf fff | head
+barulho	coagulado	1	0.00006536920809492613	0.00006536920809492613	1.00000	1.00000
+makeup	perdonar	1	0.00004603708703002744	0.00004603708703002744	1.00000	1.00000
+citizens	fullness	1	0.00010067620735265413	0.00010067620735265413	1.00000	1.00000
+coluna	faixa	1	0.00011062772702507526	0.00011062772702507526	1.00000	1.00000
+bombando	n	1	0.00000843626367505492	0.00000843626367505492	1.00000	1.00000
+devot	why	1	0.00012190611598715115	0.00012190611598715115	1.00000	1.00000
+border	production	1	0.00010067620735265413	0.00010067620735265413	1.00000	1.00000
+atropela	ben	1	0.00008842261220363828	0.00008842261220363828	1.00000	1.00000
+65292	book	1	0.00003696665439374308	0.00003696665439374308	1.00000	1.00000
+accepted	back	1	0.00005062672386630160	0.00005062672386630160	1.00000	1.00000
+
+wc -l fff
+76e3
+
+R
+> d = read.delim('fff')
+
+> head(d)
+      a1       a2 num_entries     total_xy   average_xy total_a1a2 average_a1a2
+1  earth      the           1 3.383923e-05 3.383923e-05          1            1
+2  first     word           1 1.006762e-04 1.006762e-04          1            1
+3    bed   wheels           1 1.006762e-04 1.006762e-04          1            1
+4  china comments           1 3.051146e-05 3.051146e-05          1            1
+5 always       he           1 1.051517e-05 1.051517e-05          1            1
+6   came     fail           1 3.501149e-05 3.501149e-05          1            1
+
+> tail(d[order(d$num_entries),],30)
+        a1   a2 num_entries     total_xy   average_xy total_a1a2 average_a1a2
+66802   do have          11 8.323784e-04 7.567076e-05    8.03571      0.73052
+73120    &  and          11 2.759760e-06 2.508873e-07    9.66667      0.87879
+3565   for   in          12 2.329278e-04 1.941065e-05    7.95833      0.66319
+22668 hate love          12 6.268361e-04 5.223634e-05    8.10159      0.67513
+38918   in   of          12 1.758432e-04 1.465360e-05    7.55952      0.62996
+46185   be  get          12 8.147076e-04 6.789230e-05    7.94579      0.66215
+68085  get have          12 1.149785e-03 9.581541e-05    7.65476      0.63790
+3226   and   to          13 5.865244e-05 4.511726e-06   11.16667      0.85897
+11284 have want          13 1.077841e-03 8.291088e-05    7.93974      0.61075
+12310   do  get          13 1.120046e-03 8.615739e-05   10.16667      0.78205
+35214   to with          13 1.936884e-04 1.489911e-05   10.25000      0.78846
+37179  had have          13 9.160872e-04 7.046825e-05   10.18750      0.78365
+60259   on   to          13 2.040226e-04 1.569405e-05    9.86667      0.75897
+75544    q  que          13 6.521231e-05 5.016332e-06   10.28333      0.79103
+11419   in with          14 4.865160e-04 3.475114e-05    9.75000      0.69643
+21431   we  you          14 3.963203e-05 2.830859e-06   10.00000      0.71429
+32884  can will          14 2.446004e-04 1.747146e-05    8.67980      0.61999
+42676   my your          14 3.402231e-05 2.430165e-06   10.25000      0.73214
+43850   on with          15 4.372238e-04 2.914825e-05   11.50000      0.76667
+65324   me  you          15 4.818869e-04 3.212579e-05   12.25000      0.81667
+68576    a   my          15 8.003657e-05 5.335771e-06   12.66667      0.84444
+57620  for   on          16 3.388487e-04 2.117804e-05   11.36667      0.71042
+31267    u  you          17 1.193969e-04 7.023349e-06   10.29071      0.60534
+34078  for   to          18 2.523485e-04 1.401936e-05   15.16667      0.84259
+4979     i   we          20 7.725766e-05 3.862883e-06   13.77778      0.68889
+35032   is  was          22 3.718126e-04 1.690057e-05   16.36667      0.74394
+38948   in   on          27 6.698483e-04 2.480919e-05   20.91667      0.77469
+29317    a  the          30 1.380998e-04 4.603327e-06   21.50833      0.71694
+19538   my  the          35 1.626207e-04 4.646307e-06   29.57143      0.84490
+31457    i  you          40 1.081082e-04 2.702706e-06   30.03226      0.75081
+
+> tail(d[order(d$total_xy),],30)
+        a1    a2 num_entries     total_xy   average_xy total_a1a2 average_a1a2
+3023    do learn           3 0.0006524017 2.174672e-04    2.50000      0.83333
+60045  get learn           3 0.0006524017 2.174672e-04    1.50000      0.50000
+15315  got  have           7 0.0006528553 9.326505e-05    4.04167      0.57738
+41410  get  make          10 0.0006541197 6.541197e-05    6.66667      0.66667
+38948   in    on          27 0.0006698483 2.480919e-05   20.91667      0.77469
+42823   go   try           7 0.0006716267 9.594667e-05    4.46014      0.63716
+59041   be   see           7 0.0006809579 9.727970e-05    5.82692      0.83242
+72983  day  link           4 0.0006819015 1.704754e-04    3.00000      0.75000
+65738   be    do           8 0.0006855601 8.569502e-05    4.96337      0.62042
+29222  see  take           6 0.0006892300 1.148717e-04    4.61905      0.76984
+11451 love  want          10 0.0006948078 6.948078e-05    4.62814      0.46281
+25253 like  want          10 0.0007050659 7.050659e-05    5.62564      0.56256
+33216 find   get           7 0.0007075796 1.010828e-04    4.03333      0.57619
+68128  all    on           9 0.0007168823 7.965359e-05    7.33333      0.81481
+46752 have   try           6 0.0007256288 1.209381e-04    2.60119      0.43353
+13296   me   see           6 0.0007349288 1.224881e-04    3.97619      0.66270
+62189 make   see           9 0.0007409469 8.232743e-05    4.47619      0.49735
+19203  get    me           6 0.0007801780 1.300297e-04    4.00000      0.66667
+23346  get   try           7 0.0007973056 1.139008e-04    5.25000      0.75000
+56502  get   see          10 0.0008007948 8.007948e-05    6.82143      0.68214
+66510   do    me           7 0.0008134702 1.162100e-04    4.75000      0.67857
+46185   be   get          12 0.0008147076 6.789230e-05    7.94579      0.66215
+25263   do   see          10 0.0008179502 8.179502e-05    6.30952      0.63095
+71483  got  want          10 0.0008276014 8.276014e-05    6.48718      0.64872
+66802   do  have          11 0.0008323784 7.567076e-05    8.03571      0.73052
+54692  day   way           7 0.0008839838 1.262834e-04    4.33333      0.61905
+37179  had  have          13 0.0009160872 7.046825e-05   10.18750      0.78365
+11284 have  want          13 0.0010778414 8.291088e-05    7.93974      0.61075
+12310   do   get          13 0.0011200461 8.615739e-05   10.16667      0.78205
+68085  get  have          12 0.0011497849 9.581541e-05    7.65476      0.63790
+
+> tail(d[order(d$total_a1a2),],30)
+        a1   a2 num_entries     total_xy   average_xy total_a1a2 average_a1a2
+3565   for   in          12 2.329278e-04 1.941065e-05    7.95833      0.66319
+903      i    u           9 1.845365e-05 2.050405e-06    8.00000      0.88889
+34257 need want          10 6.356439e-04 6.356439e-05    8.00583      0.80058
+66802   do have          11 8.323784e-04 7.567076e-05    8.03571      0.73052
+22668 hate love          12 6.268361e-04 5.223634e-05    8.10159      0.67513
+32884  can will          14 2.446004e-04 1.747146e-05    8.67980      0.61999
+73120    &  and          11 2.759760e-06 2.508873e-07    9.66667      0.87879
+11419   in with          14 4.865160e-04 3.475114e-05    9.75000      0.69643
+60259   on   to          13 2.040226e-04 1.569405e-05    9.86667      0.75897
+21431   we  you          14 3.963203e-05 2.830859e-06   10.00000      0.71429
+53768  for with          11 1.673834e-04 1.521667e-05   10.00000      0.90909
+66832 that this          10 1.909473e-04 1.909473e-05   10.00000      1.00000
+12310   do  get          13 1.120046e-03 8.615739e-05   10.16667      0.78205
+37179  had have          13 9.160872e-04 7.046825e-05   10.18750      0.78365
+35214   to with          13 1.936884e-04 1.489911e-05   10.25000      0.78846
+42676   my your          14 3.402231e-05 2.430165e-06   10.25000      0.73214
+75544    q  que          13 6.521231e-05 5.016332e-06   10.28333      0.79103
+31267    u  you          17 1.193969e-04 7.023349e-06   10.29071      0.60534
+3226   and   to          13 5.865244e-05 4.511726e-06   11.16667      0.85897
+57620  for   on          16 3.388487e-04 2.117804e-05   11.36667      0.71042
+43850   on with          15 4.372238e-04 2.914825e-05   11.50000      0.76667
+65324   me  you          15 4.818869e-04 3.212579e-05   12.25000      0.81667
+68576    a   my          15 8.003657e-05 5.335771e-06   12.66667      0.84444
+4979     i   we          20 7.725766e-05 3.862883e-06   13.77778      0.68889
+34078  for   to          18 2.523485e-04 1.401936e-05   15.16667      0.84259
+35032   is  was          22 3.718126e-04 1.690057e-05   16.36667      0.74394
+38948   in   on          27 6.698483e-04 2.480919e-05   20.91667      0.77469
+29317    a  the          30 1.380998e-04 4.603327e-06   21.50833      0.71694
+19538   my  the          35 1.626207e-04 4.646307e-06   29.57143      0.84490
+31457    i  you          40 1.081082e-04 2.702706e-06   30.03226      0.75081
+
+> tail(d[order(d$total_xy * d$total_a1a2),],30)
+        a1    a2 num_entries     total_xy   average_xy total_a1a2 average_a1a2
+65738   be    do           8 0.0006855601 8.569502e-05    4.96337      0.62042
+12132  day night           8 0.0005645246 7.056558e-05    6.33333      0.79167
+34078  for    to          18 0.0002523485 1.401936e-05   15.16667      0.84259
+54692  day   way           7 0.0008839838 1.262834e-04    4.33333      0.61905
+57620  for    on          16 0.0003388487 2.117804e-05   11.36667      0.71042
+66510   do    me           7 0.0008134702 1.162100e-04    4.75000      0.67857
+25253 like  want          10 0.0007050659 7.050659e-05    5.62564      0.56256
+59041   be   see           7 0.0006809579 9.727970e-05    5.82692      0.83242
+56624 have  need          10 0.0005897399 5.897399e-05    7.00000      0.70000
+23346  get   try           7 0.0007973056 1.139008e-04    5.25000      0.75000
+41410  get  make          10 0.0006541197 6.541197e-05    6.66667      0.66667
+52891  get  want           9 0.0006226387 6.918207e-05    7.05385      0.78376
+11419   in  with          14 0.0004865160 3.475114e-05    9.75000      0.69643
+19538   my   the          35 0.0001626207 4.646307e-06   29.57143      0.84490
+43850   on  with          15 0.0004372238 2.914825e-05   11.50000      0.76667
+22668 hate  love          12 0.0006268361 5.223634e-05    8.10159      0.67513
+34257 need  want          10 0.0006356439 6.356439e-05    8.00583      0.80058
+25263   do   see          10 0.0008179502 8.179502e-05    6.30952      0.63095
+68128  all    on           9 0.0007168823 7.965359e-05    7.33333      0.81481
+71483  got  want          10 0.0008276014 8.276014e-05    6.48718      0.64872
+56502  get   see          10 0.0008007948 8.007948e-05    6.82143      0.68214
+65324   me   you          15 0.0004818869 3.212579e-05   12.25000      0.81667
+35032   is   was          22 0.0003718126 1.690057e-05   16.36667      0.74394
+46185   be   get          12 0.0008147076 6.789230e-05    7.94579      0.66215
+66802   do  have          11 0.0008323784 7.567076e-05    8.03571      0.73052
+11284 have  want          13 0.0010778414 8.291088e-05    7.93974      0.61075
+68085  get  have          12 0.0011497849 9.581541e-05    7.65476      0.63790
+37179  had  have          13 0.0009160872 7.046825e-05   10.18750      0.78365
+12310   do   get          13 0.0011200461 8.615739e-05   10.16667      0.78205
+38948   in    on          27 0.0006698483 2.480919e-05   20.91667      0.77469
 
 
+so can't work out a good combo of weights to use, lets just roll with raw number occurances then...
+
+bash> head -50000 sample.tweets.840k | ./prototype2.rb | sort | uniq -c | sort -n | tee fff
+     28 &	and
+     28 get	have
+     28 have	want
+     29 at	for
+     29 i	they
+     29 of	on
+     30 do	get
+     30 do	have
+     30 the	your
+     31 and	to
+     31 at	in
+     31 in	to
+     32 have	need
+     33 it	you
+     33 on	with
+     33 we	you
+     34 i	it
+     35 for	to
+     36 on	to
+     38 for	with
+     38 the	this
+     39 u	you
+     40 a	my
+     41 is	was
+     41 me	you
+     42 2	to
+     43 in	with
+     44 for	on
+     45 my	your
+     47 for	in
+     47 i	we
+     62 in	on
+     84 a	the
+     96 my	the
+    110 i	you
+
+are there some special graphs here??
+
+bash> tail -20 fff | ./dotify.rb | dot
+
+
+
+
+
+
+----------------------------------------
+
+TODO: from other papers read try the different idea of a vector space model approach based on term proximity
+eg a b c d 
+=> a = ((b,1),(c,2),(d,3)
+=> b = ((a,1),(c,1),(d,2)
+=> c = ((a,2),(b,1),(d,1)
+=> d = ((a,3),(b,2),(c,1)
+
+combine for each term and can then do pairwise similiarity between terms
+naive impl is O(n^2.m) so need heuristic tricks (like sketching)
+
+
+
+
+
+
+
+
+2. 
