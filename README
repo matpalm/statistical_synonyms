@@ -380,10 +380,27 @@ bash> head -50000 sample.tweets.840k | ./prototype2.rb | sort | uniq -c | sort -
 
 are there some special graphs here??
 
-bash> tail -20 fff | ./dotify.rb | dot
+bash> tail -150 fff | ./dotify.rb num_entries_150.png 
 
+so interesting results...
 
+note: these are number of distinct occurances of x1 a y1, x2 a y2, and does not take into account the total number of occurances of each x a y
+tried including the frequency
 
+eg 
+x1 a y1
+x1 a y1
+x1 a y1
+x1 b y1
+x2 a y2
+x2 b y2
+
+-> a b 3 (from x1) and a b 1 (from x2) = a b 4 
+but this doesn't work
+
+better to just count each distinct xi once
+eg above example is just
+-> a b (from x1) and a b (from x2) = a b 2
 
 
 
@@ -405,5 +422,3 @@ naive impl is O(n^2.m) so need heuristic tricks (like sketching)
 
 
 
-
-2. 
