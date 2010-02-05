@@ -402,9 +402,45 @@ better to just count each distinct xi once
 eg above example is just
 -> a b (from x1) and a b (from x2) = a b 2
 
+running over 840k tweets get
 
+   1168 on	with
+   1179 i	u
+   1187 and	in
+   1193 i	it
+   1198 in	of
+   1221 i	they
+   1235 the	your
+   1247 for	to
+   1257 at	in
+   1257 it	you
+   1264 in	to
+   1276 for	with
+   1319 me	you
+   1322 a	this
+   1351 in	with
+   1352 2	to
+   1370 and	to
+   1408 and	but
+   1446 &	and
+   1450 my	your
+   1454 u	you
+   1534 i	we
+   1598 for	on
+   1735 the	this
+   1771 for	in
+   2199 a	my
+   2216 in	on
+   2487 i	you
+   3703 my	the
+   4148 a	the
 
-----------------------------------------
+and the graph graph.840k.150.png
+
+not that interesting after all, some synonymlike relationships, u-you, &-and, 2-to etc 
+but mostly a-the, my-the etc
+
+switch over to another idea...
 
 TODO: from other papers read try the different idea of a vector space model approach based on term proximity
 eg a b c d 
