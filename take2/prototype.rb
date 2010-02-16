@@ -6,8 +6,8 @@ require 'pp'
 
 word_idx = WordIdx.new
 
-lines = STDIN.to_a.collect { |line| line.chomp.split }
-lines = [ 'the fat cat','the fat dog' ].map(&:split)
+lines = STDIN.to_a.collect { |line| line.chomp.split }.select { |words| words.size>1 }
+#lines = [ 'the fat cat','the fat dog' ].map(&:split)
 #lines = [lines.first]
 
 =begin
@@ -45,9 +45,6 @@ lines.each do |words|
 end
 word_idx.dump_lexicon
 
-pp word_matrix
-
-
 =begin
 now convert from hash of hashes form to hash of arrays, ordered by key, with averages taken for each array
 above 
@@ -70,4 +67,14 @@ word_matrix.collect! do |id2_to_pos|
 	key_values_sorted
 end
 
-pp word_matrix
+word_matrix.each_with_index do |word_vectors, idx|
+	puts "idx=#{idx} word_vectors=#{word_vectors.inspect}"
+end
+
+(0...word_matrix.size).each do |id1|
+	proximity_vector1 = word_matrix[id1]
+	((id1+1)...word_matrix.size).each do |id2|
+		proximity_vector2 = word_matrix[id2]
+		puts "DISTS #{word_idx.word_for(id1)} #{word_idx.word_for(id2)} #{proximity_vector1.sparse_distance_to(proximity_vector2)}"
+	end
+end

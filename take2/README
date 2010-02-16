@@ -1,0 +1,9 @@
+WORK IN PROGRESS!!!!!!!!!!
+
+zcat /data/twitter/gardenhose/sample.20091116.json.gz |\
+	./tweet_text.rb |\
+	./sanitise.rb |\
+	> sample.tweets
+
+cat sample.tweets | ./prototype.rb >ff
+
